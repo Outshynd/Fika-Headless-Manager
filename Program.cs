@@ -2,133 +2,149 @@
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace FikaHeadlessManager
+namespace FikaHeadlessManager;
+
+public static class Program
 {
-    public class Program
+    private static Settings? Settings { get; set; }
+    private static string? StartArguments
     {
-        static Settings? Settings { get; set; }
-        static string? StartArguments
+        get
         {
-            get
+            if (Settings == null)
             {
-                if (Settings == null)
-                {
-                    Log("Settings were null when trying to generate StartArguments?", ConsoleColor.Red);
-                    return string.Empty;
-                }
-
-                if (string.IsNullOrEmpty(Settings.ProfileId))
-                {
-                    Log("ProfileId was null!", ConsoleColor.Red);
-                    return string.Empty;
-                }
-
-                if (Settings.BackendUrl == null)
-                {
-                    Log("BackendUrl was null!", ConsoleColor.Red);
-                    return string.Empty;
-                }
-
-                return $"-token={Settings.ProfileId} -config={{'BackendUrl':'{Settings.BackendUrl.OriginalString}','Version':'live'}}{(WithGraphics ? string.Empty : " -nographics -batchmode")} --enable-console true";
-            }
-        }
-        static bool WithGraphics { get; set; }
-        static Process? TarkovProcess { get; set; }
-
-        static async Task Main(string[] args)
-        {
-            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
-
-            string configPath = "HeadlessConfig.json";
-            if (!File.Exists(configPath))
-            {
-                Log("Unable to find the configuration file 'HeadlessConfig.json'.\nMake sure that you have configured the headless correctly!", ConsoleColor.Red);
-                Console.ReadKey(true);
+                Log("Settings were null when trying to generate StartArguments?", ConsoleColor.Red);
+                return string.Empty;
             }
 
-            using (FileStream fileStream = File.OpenRead(configPath))
+            if (string.IsNullOrEmpty(Settings.ProfileId))
             {
-                Settings = await JsonSerializer.DeserializeAsync<Settings>(fileStream);
+                Log("ProfileId was null!", ConsoleColor.Red);
+                return string.Empty;
             }
 
-            WithGraphics = WaitForGraphicsInput();
-
-            _ = Task.Run(StartGame);
-            await Task.Delay(-1);
-        }
-
-        private static void CurrentDomain_ProcessExit(object? sender, EventArgs e)
-        {
-            TarkovProcess?.Kill();
-        }
-
-        private static void StartGame()
-        {
-            Log($"Starting headless client {(WithGraphics ? "with" : "without")} graphics.");
-
-            ProcessStartInfo startInfo = new()
+            if (Settings.BackendUrl == null)
             {
-                Arguments = StartArguments,
-                UseShellExecute = true,
-                FileName = "EscapeFromTarkov.exe",
-            };
+                Log("BackendUrl was null!", ConsoleColor.Red);
+                return string.Empty;
+            }
 
-            Process? gameProcess = Process.Start(startInfo);
-            
-            if (gameProcess == null)
+            var graphicsArgs = WithGraphics ? string.Empty : " -nographics -batchmode";
+
+            return $"-token={Settings.ProfileId} " +
+                   $"-config={{'BackendUrl':'{Settings.BackendUrl}','Version':'live'}}" +
+                   $"{graphicsArgs} --enable-console true";
+        }
+    }
+    private static bool WithGraphics { get; set; }
+    private static Process? TarkovProcess { get; set; }
+
+    private static async Task Main()
+    {
+        AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
+
+        const string configPath = "HeadlessConfig.json";
+        if (!File.Exists(configPath))
+        {
+            Log("Unable to find the configuration file 'HeadlessConfig.json'.\nMake sure that you have configured the headless correctly!", ConsoleColor.Red);
+            Console.ReadKey(true);
+            Environment.Exit(1);
+        }
+
+        try
+        {
+            await using var fileStream = File.OpenRead(configPath);
+            Settings = await JsonSerializer.DeserializeAsync<Settings>(fileStream)
+                       ?? throw new InvalidOperationException("Failed to deserialize configuration.");
+        }
+        catch (Exception ex)
+        {
+            Log($"Error loading configuration: {ex.Message}", ConsoleColor.Red);
+            Console.ReadKey(true);
+            Environment.Exit(1);
+        }
+
+        WithGraphics = await WaitForGraphicsInput();
+
+        _ = Task.Run(GameLoop);
+        await Task.Delay(-1); // keep process alive
+    }
+
+    private static void CurrentDomain_ProcessExit(object? sender, EventArgs e)
+    {
+        if (TarkovProcess == null)
+        {
+            return;
+        }
+
+        if (!TarkovProcess.HasExited)
+        {
+            TarkovProcess.Kill(true);
+        }
+    }
+
+    private static bool StartGame()
+    {
+        Log($"Starting headless client {(WithGraphics ? "with" : "without")} graphics.");
+
+        var startInfo = new ProcessStartInfo
+        {
+            Arguments = StartArguments,
+            UseShellExecute = true,
+            FileName = "EscapeFromTarkov.exe",
+        };
+
+        TarkovProcess = Process.Start(startInfo);
+        return TarkovProcess != null;
+    }
+
+    private static async Task GameLoop()
+    {
+        while (true)
+        {
+            if (!StartGame())
             {
                 Log("Could not start the headless client!", ConsoleColor.Red);
                 Console.ReadKey();
                 Environment.Exit(1);
             }
 
-            gameProcess.EnableRaisingEvents = true;
-            gameProcess.Exited += GameProcess_Exited;
-            TarkovProcess = gameProcess;
-        }
-
-        private static void GameProcess_Exited(object? sender, EventArgs e)
-        {
-            if (sender is Process process)
-            {
-                process.Exited -= GameProcess_Exited;
-            }
-
+            await TarkovProcess!.WaitForExitAsync();
             TarkovProcess = null;
 
             Log("Game exited, restarting...");
-            WithGraphics = WaitForGraphicsInput();
-            StartGame();
+            WithGraphics = await WaitForGraphicsInput();
         }
+    }
 
-        private static bool WaitForGraphicsInput()
+    private static async Task<bool> WaitForGraphicsInput()
+    {
+        Log("Press 'g' to start with graphics or wait 3 seconds...");
+
+        var keyTask = Task.Run(() =>
         {
-            Log("Press 'g' to start with graphics, otherwise wait 3 seconds...");
-            DateTime delayTime = DateTime.Now.AddSeconds(3);
-            while (DateTime.Now < delayTime)
+            if (Console.KeyAvailable)
             {
-                if (Console.KeyAvailable)
-                {
-                    ConsoleKeyInfo key = Console.ReadKey(true);
-                    if (key.Key is ConsoleKey.G)
-                    {
-                        return true;
-                    }
-                }
+                var key = Console.ReadKey(true);
+                return key.Key == ConsoleKey.G;
             }
-
             return false;
-        }
+        });
 
-        static void Log(string message, ConsoleColor color = ConsoleColor.White)
+        var delayTask = Task.Delay(3000);
+
+        var completed = await Task.WhenAny(keyTask, delayTask);
+        return completed == keyTask && keyTask.Result;
+    }
+
+    private static void Log(string message, ConsoleColor color = ConsoleColor.White)
+    {
+        if (color is not ConsoleColor.White)
         {
-            if (color is not ConsoleColor.White)
-            {
-                Console.ForegroundColor = color;
-            }
-
-            Console.WriteLine(message);
-            Console.ResetColor();
+            Console.ForegroundColor = color;
         }
+
+        Console.WriteLine(message);
+        Console.ResetColor();
     }
 }
