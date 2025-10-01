@@ -32,7 +32,7 @@ public static class Program
             var graphicsArgs = WithGraphics ? string.Empty : " -nographics -batchmode";
 
             return $"-token={Settings.ProfileId} " +
-                   $"-config={{'BackendUrl':'{Settings.BackendUrl}','Version':'live'}}" +
+                   $"-config={{'BackendUrl':'{Settings.BackendUrl.OriginalString}','Version':'live'}}" +
                    $"{graphicsArgs} --enable-console true";
         }
     }
@@ -121,20 +121,19 @@ public static class Program
     {
         Log("Press 'g' to start with graphics or wait 3 seconds...");
 
-        var keyTask = Task.Run(() =>
+        var delayTask = Task.Delay(3000);
+
+        while (!delayTask.IsCompleted)
         {
             if (Console.KeyAvailable)
             {
                 var key = Console.ReadKey(true);
                 return key.Key == ConsoleKey.G;
             }
-            return false;
-        });
+            await Task.Delay(50); // small delay to avoid busy looping
+        }
 
-        var delayTask = Task.Delay(3000);
-
-        var completed = await Task.WhenAny(keyTask, delayTask);
-        return completed == keyTask && keyTask.Result;
+        return false;
     }
 
     private static void Log(string message, ConsoleColor color = ConsoleColor.White)
