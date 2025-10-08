@@ -43,12 +43,13 @@ jobs:
           dotnet publish FikaHeadlessManager.csproj \
             --configuration ${{ inputs.build_type }} \
             --no-restore \
+            --runtime win-x64 \
             --output output/ \
             -p:PublishSingleFile=true \
-            -p:SelfContained=true \
-            -p:IncludeAllContentForSelfExtract=true \
-            -p:PublishTrimmed=false \
-            -r win-x64
+            -p:SelfContained=false \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:PublishTrimmed=false
 
       - name: Copy loose files
         run: |
