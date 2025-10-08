@@ -43,10 +43,12 @@ jobs:
 
       - name: Copy loose files
         run: |
-          cp LICENSE.md output/FikaHeadlessManager-LICENSE.md
+          mkdir -p build/
+          cp output/FikaHeadlessManager.exe build/
+          cp LICENSE.md build/FikaHeadlessManager-LICENSE.md
 
       - name: Zip the build and loose files
-        run: zip -r "${{ inputs.release_name }}.zip" output/
+        run: zip -r "${{ inputs.release_name }}.zip" output/* -j
 
       - name: Create GitHub Release Draft
         uses: softprops/action-gh-release@v2
