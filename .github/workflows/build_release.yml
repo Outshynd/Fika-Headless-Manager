@@ -39,13 +39,20 @@ jobs:
         run: dotnet restore FikaHeadlessManager.sln
 
       - name: Publish the project
-        run: dotnet publish FikaHeadlessManager.csproj --configuration ${{ inputs.build_type }} --no-restore --output output/
+        run: |
+          dotnet publish FikaHeadlessManager.csproj \
+            --configuration ${{ inputs.build_type }} \
+            --no-restore \
+            --output output/ \
+            -p:PublishSingleFile=true \
+            -p:SelfContained=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:PublishTrimmed=false \
+            -r win-x64
 
       - name: Copy loose files
         run: |
-          mkdir -p build/
-          cp output/FikaHeadlessManager.exe build/
-          cp LICENSE.md build/FikaHeadlessManager-LICENSE.md
+          cp LICENSE.md output/FikaHeadlessManager-LICENSE.md
 
       - name: Zip the build and loose files
         run: zip -r "${{ inputs.release_name }}.zip" output/* -j
