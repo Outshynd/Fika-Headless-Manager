@@ -11,7 +11,7 @@ on:
         required: true
       build_type:
         type: choice
-        description: The build configuration (e.g., Release)
+        description: 'The build configuration (e.g., Release)'
         required: true
         options: 
         - Release
@@ -21,7 +21,7 @@ on:
         required: false
 
 jobs:
-  build-and-release:
+  build-windows:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,27 +36,89 @@ jobs:
           cache-dependency-path: 'packages.lock.json'
 
       - name: Restore dependencies
-        run: dotnet restore FikaHeadlessManager.sln
+        run: dotnet restore FikaHeadlessManager.csproj
 
-      - name: Publish the project
+      - name: Publish Windows build (framework-dependent single file)
         run: |
           dotnet publish FikaHeadlessManager.csproj \
             --configuration ${{ inputs.build_type }} \
             --no-restore \
-            --runtime win-x64 \
-            --output output/ \
+            --output output/windows/ \
             -p:PublishSingleFile=true \
             -p:SelfContained=false \
             -p:DebugType=None \
             -p:DebugSymbols=false \
             -p:PublishTrimmed=false
 
-      - name: Copy loose files
-        run: |
-          cp LICENSE.md output/FikaHeadlessManager-LICENSE.md
+      - name: Copy license
+        run: cp LICENSE.md output/windows/FikaHeadlessManager-LICENSE.md
 
-      - name: Zip the build and loose files
-        run: zip -r "${{ inputs.release_name }}.zip" output/* -j
+      - name: Zip Windows build
+        run: |
+          cd output/windows
+          zip -r "../../${{ inputs.release_name }}.zip" .
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.release_name }}
+          path: ${{ inputs.release_name }}.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [linux-x64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          cache: true
+          cache-dependency-path: 'packages.lock.json'
+
+      - name: Restore dependencies
+        run: dotnet restore FikaHeadlessManager.csproj --runtime ${{ matrix.runtime }}
+
+      - name: Publish Linux build (framework-dependent single file)
+        run: |
+          dotnet publish FikaHeadlessManager.csproj \
+            --configuration ${{ inputs.build_type }} \
+            --no-restore \
+            --runtime ${{ matrix.runtime }} \
+            --output output/${{ matrix.runtime }}/ \
+            -p:PublishSingleFile=true \
+            -p:SelfContained=false \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:PublishTrimmed=false
+
+      - name: Copy license
+        run: cp LICENSE.md output/${{ matrix.runtime }}/FikaHeadlessManager-LICENSE.md
+
+      - name: Zip Linux build
+        run: |
+          cd output/${{ matrix.runtime }}
+          zip -r "../../${{ inputs.release_name }}-${{ matrix.runtime }}.zip" .
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.release_name }}-${{ matrix.runtime }}
+          path: ${{ inputs.release_name }}-${{ matrix.runtime }}.zip
+
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: releases
 
       - name: Create GitHub Release Draft
         uses: softprops/action-gh-release@v2
@@ -66,6 +128,6 @@ jobs:
           body: ${{ inputs.release_notes }}
           draft: true
           files: |
-            ${{ inputs.release_name }}.zip
+            releases/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
