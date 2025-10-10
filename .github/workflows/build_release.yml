@@ -103,7 +103,7 @@ jobs:
       - name: Tar Linux build
         run: |
           cd output/${{ matrix.runtime }}
-          tar -czf "../../${{ inputs.release_name }}-${{ matrix.runtime }}.tar.gz" .
+          tar -czf "../../${{ inputs.release_name }}-${{ matrix.runtime }}.tar.gz" *
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
