@@ -43,6 +43,7 @@ jobs:
           dotnet publish FikaHeadlessManager.csproj \
             --configuration ${{ inputs.build_type }} \
             --no-restore \
+            --runtime win-x64 \
             --output output/windows/ \
             -p:PublishSingleFile=true \
             -p:SelfContained=false \
