@@ -129,5 +129,6 @@ jobs:
           draft: true
           files: |
             releases/**/*.zip
+            releases/**/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
