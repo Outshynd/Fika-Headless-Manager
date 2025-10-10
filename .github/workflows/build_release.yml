@@ -100,16 +100,16 @@ jobs:
       - name: Copy license
         run: cp LICENSE.md output/${{ matrix.runtime }}/FikaHeadlessManager-LICENSE.md
 
-      - name: Zip Linux build
+      - name: Tar Linux build
         run: |
           cd output/${{ matrix.runtime }}
-          zip -r "../../${{ inputs.release_name }}-${{ matrix.runtime }}.zip" .
+          tar -czf "../../${{ inputs.release_name }}-${{ matrix.runtime }}.tar.gz" .
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.release_name }}-${{ matrix.runtime }}
-          path: ${{ inputs.release_name }}-${{ matrix.runtime }}.zip
+          path: ${{ inputs.release_name }}-${{ matrix.runtime }}.tar.gz
 
   release:
     needs: [build-windows, build-linux]
