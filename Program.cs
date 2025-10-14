@@ -64,8 +64,6 @@ public static class Program
             Environment.Exit(1);
         }
 
-        WithGraphics = await WaitForGraphicsInput();
-
         _ = Task.Run(GameLoop);
         await Task.Delay(-1); // keep process alive
     }
@@ -87,6 +85,19 @@ public static class Program
     {
         Log($"Starting headless client {(WithGraphics ? "with" : "without")} graphics.");
 
+        var logFile = Path.Combine(Environment.CurrentDirectory, @"BepInEx\LogOutput.log");
+        if (File.Exists(logFile))
+        {
+            try
+            {
+                File.Move(logFile, logFile.Replace(".log", "_prev.log"), true);
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not archive the previous log file:\n{ex.Message}", ConsoleColor.Red);
+            }
+        }
+
         var startInfo = new ProcessStartInfo
         {
             Arguments = StartArguments,
@@ -102,13 +113,15 @@ public static class Program
     {
         while (true)
         {
+            WithGraphics = await WaitForGraphicsInput();
+
             if (!StartGame())
             {
                 Log("Could not start the headless client!", ConsoleColor.Red);
                 Console.ReadKey();
                 Environment.Exit(1);
             }
-
+            
             await TarkovProcess!.WaitForExitAsync();
             TarkovProcess = null;
 
