@@ -86,6 +86,7 @@ public static class Program
         Log($"Starting headless client {(WithGraphics ? "with" : "without")} graphics.");
 
         var logFile = Path.Combine(Environment.CurrentDirectory, @"BepInEx\LogOutput.log");
+
         if (File.Exists(logFile))
         {
             try
@@ -126,7 +127,6 @@ public static class Program
             TarkovProcess = null;
 
             Log("Game exited, restarting...");
-            WithGraphics = await WaitForGraphicsInput();
         }
     }
 
