@@ -181,7 +181,8 @@ public static class Program
         {
             client.DefaultRequestHeaders.Add("responsecompressed", "0");
 
-            var response = client.GetAsync($"{BackendUrl}{ApiEndpoint}").Result;
+            var response = client.GetAsync($"{BackendUrl}{ApiEndpoint}").
+                GetAwaiter().GetResult();
 
             if (response.IsSuccessStatusCode)
             {
