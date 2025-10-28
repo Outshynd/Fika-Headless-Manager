@@ -82,7 +82,7 @@ public static class Program
         }
     }
 
-    private static bool StartGame()
+    private static async Task<bool> StartGame()
     {
         Log($"Starting headless client {(WithGraphics ? "with" : "without")} graphics.");
 
@@ -92,7 +92,7 @@ public static class Program
         {
             try
             {
-                File.Move(logFile, logFile.Replace(".log", "_prev.log"), true);
+                await Task.Run(() => File.Move(logFile, logFile.Replace(".log", "_prev.log"), true));
             }
             catch (Exception ex)
             {
@@ -115,7 +115,8 @@ public static class Program
     {
         while (true)
         {
-            if (!IsServerAccessible(Settings!.BackendUrl))
+            var success = await IsServerAccessible(Settings!.BackendUrl);
+            if (!success)
             {
                 Log("Press any key to exit...");
                 Console.ReadKey(true);
@@ -124,7 +125,8 @@ public static class Program
 
             WithGraphics = await WaitForGraphicsInput();
 
-            if (!StartGame())
+            var started = await StartGame();
+            if (!started)
             {
                 Log("Could not start the headless client!", ConsoleColor.Red);
                 Console.ReadKey();
@@ -168,11 +170,11 @@ public static class Program
         Console.ResetColor();
     }
 
-    private static bool IsServerAccessible(Uri? BackendUrl, string ApiEndpoint = "fika/presence/get")
+    private static async Task<bool> IsServerAccessible(Uri? BackendUrl, string ApiEndpoint = "fika/presence/get")
     {
         HttpClientHandler InsecureHandler = new()
         {
-            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
         };
 
         HttpClient client = new(InsecureHandler);
@@ -181,8 +183,7 @@ public static class Program
         {
             client.DefaultRequestHeaders.Add("responsecompressed", "0");
 
-            var response = client.GetAsync($"{BackendUrl}{ApiEndpoint}").
-                GetAwaiter().GetResult();
+            var response = await client.GetAsync($"{BackendUrl}{ApiEndpoint}");
 
             if (response.IsSuccessStatusCode)
             {
