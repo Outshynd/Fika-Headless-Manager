@@ -1,4 +1,5 @@
 ﻿using FikaHeadlessManager.Models;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -114,6 +115,13 @@ public static class Program
     {
         while (true)
         {
+            if (!IsServerAccessible(Settings!.BackendUrl))
+            {
+                Log("Press any key to exit...");
+                Console.ReadKey(true);
+                Environment.Exit(1);
+            }
+
             WithGraphics = await WaitForGraphicsInput();
 
             if (!StartGame())
@@ -158,5 +166,43 @@ public static class Program
 
         Console.WriteLine(message);
         Console.ResetColor();
+    }
+
+    private static bool IsServerAccessible(Uri? BackendUrl, string ApiEndpoint = "fika/presence/get")
+    {
+        HttpClientHandler InsecureHandler = new()
+        {
+            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+        };
+
+        HttpClient client = new(InsecureHandler);
+
+        try
+        {
+            client.DefaultRequestHeaders.Add("responsecompressed", "0");
+
+            var response = client.GetAsync($"{BackendUrl}{ApiEndpoint}").
+                GetAwaiter().GetResult();
+
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+            else
+            {
+                Log($"Could not access {BackendUrl}{ApiEndpoint}\nEnsure Fika Server mod is installed. Please review the installation process in the documentation.", ConsoleColor.Red);
+                return false;
+            }
+        }
+        catch
+        {
+            Log($"Could not reach SPT.Server at {BackendUrl}\nPlease ensure SPT.Server is running and accessible.", ConsoleColor.Red);
+            return false;
+        }
+        finally
+        {
+            client.Dispose();
+            InsecureHandler.Dispose();
+        }
     }
 }
