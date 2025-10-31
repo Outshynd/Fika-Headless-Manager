@@ -1,5 +1,7 @@
 ﻿using FikaHeadlessManager.Models;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace FikaHeadlessManager;
@@ -204,6 +206,31 @@ public static class Program
         {
             client.Dispose();
             InsecureHandler.Dispose();
+        }
+    }
+}
+
+internal static class StartupNative
+{
+    const uint LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800;
+
+    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags);
+
+    [ModuleInitializer]
+    internal static void Init()
+    {
+        IntPtr h = LoadLibraryEx("winhttp.dll", IntPtr.Zero, LOAD_LIBRARY_SEARCH_SYSTEM32);
+
+        if (h == IntPtr.Zero)
+        {
+            // Considering this is a non-fatal error and this patch fix is only for rare cases we continue without throwing
+            //throw new Win32Exception(Marshal.GetLastWin32Error());
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Failed to load winhttp.dll from system folder.");
+            Console.ResetColor();
+            Console.WriteLine($"If no other issues are experienced, ignore this error.");
         }
     }
 }
