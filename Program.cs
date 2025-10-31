@@ -1,5 +1,4 @@
 ﻿using FikaHeadlessManager.Models;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -105,6 +104,7 @@ public static class Program
             Arguments = StartArguments,
             UseShellExecute = true,
             FileName = "EscapeFromTarkov.exe",
+            WindowStyle = ProcessWindowStyle.Minimized
         };
 
         TarkovProcess = Process.Start(startInfo);
@@ -132,7 +132,7 @@ public static class Program
                 Console.ReadKey();
                 Environment.Exit(1);
             }
-            
+
             await TarkovProcess!.WaitForExitAsync();
             TarkovProcess = null;
 
