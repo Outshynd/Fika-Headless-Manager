@@ -106,7 +106,7 @@ public static class Program
             Arguments = StartArguments,
             UseShellExecute = true,
             FileName = "EscapeFromTarkov.exe",
-            WindowStyle = ProcessWindowStyle.Minimized
+            WindowStyle = (!WithGraphics && Settings!.StartMinimized) ? ProcessWindowStyle.Minimized : ProcessWindowStyle.Normal
         };
 
         TarkovProcess = Process.Start(startInfo);
